@@ -17,7 +17,7 @@
 | SFT | Full-param + loss mask | 900K multi-turn dialogues | ~53,000 | Loss → ~2.0 |
 | DPO | Bradley-Terry preference | 17K preference pairs | 4,292 | Loss **0.69 → 0.35** |
 | GRPO v1 | Model-based reward (InternLM2-1.8B) | 19.5K RLAIF prompts | 9,751 | Reward **-1.78 → -1.78** (reward hacking observed) |
-| GRPO v2 | **Rule-based R1-style** (format + correctness) | 1K GSM8K prompts | 200 | Reward **0.34 → 0.40**, but Correct rate ~1-2% (capacity ceiling) |
+| GRPO v2 | **Rule-based R1-style** (format + correctness) | 1K GSM8K prompts | 500 | Reward **0.34 → 0.40** (+20%), Correct rate 0 → **14%** (last 100 steps) |
 
 **The GRPO v1 vs v2 comparison is the key finding** — see [Findings & Analysis](#findings--analysis) below.
 
@@ -155,7 +155,7 @@ python train_grpo.py \
 
 ```bash
 cd trainer && python train_grpo_r1.py \
-  --max_steps 200 --num_samples 1000 \
+  --max_steps 500 --num_samples 1000 \
   --num_generations 4 --batch_size 2 \
   --max_gen_len 256 --learning_rate 1e-6 \
   --hidden_size 512 --num_hidden_layers 8 \
@@ -168,14 +168,14 @@ cd trainer && python train_grpo_r1.py \
   - `+2.0` if the extracted number equals GSM8K ground truth
   - `-0.5 * rep_penalty(response)` (repetition penalty)
 - **Data:** GSM8K 1,000 math problems (via `datasets.load_dataset("gsm8k", "main")`).
-- **Duration:** ~8 minutes, 200 steps.
+- **Duration:** ~20 minutes, 500 steps (1 full epoch on GSM8K-1K).
 
 **Results:**
 
-- **Mean reward: `0.34 → 0.40`** over 200 steps, **monotonically increasing** (real signal).
+- **Mean reward: `0.337 → 0.404`** over 500 steps (+19.9%), **converged** (last-50 vs last-100 window diverges by <0.5%).
 - **Format rate: 100% stable** — the model reliably emits `</think>`.
 - **KL_ref < 0.01** — healthy, no divergence.
-- **Correctness rate: ~1–2%** throughout.
+- **Correctness rate: 0% → ~14%** (fraction of steps with at least one correct completion in the group-of-4, measured over the last 100 steps). Still far below competent reasoning, bounded by 30M capacity.
 
 ![grpo r1 curves](plots/grpo_r1_curves.png)
 
